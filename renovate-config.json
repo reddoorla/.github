@@ -9,6 +9,9 @@
     "platformAutomerge": true
   },
   "osvVulnerabilityAlerts": true,
+  "vulnerabilityAlerts": {
+    "enabled": true
+  },
   "packageRules": [
     { "matchUpdateTypes": ["patch", "minor"], "automerge": true, "platformAutomerge": true },
     { "matchUpdateTypes": ["major"], "automerge": false }
