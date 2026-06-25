@@ -14,6 +14,18 @@
   },
   "packageRules": [
     { "matchUpdateTypes": ["patch", "minor"], "automerge": true, "platformAutomerge": true },
+    {
+      "description": "Never auto-merge packages that reshape the dependency graph (and thus pnpm hoisting). An @reddoorla/maintenance minor bump silently broke Netlify builds via an undeclared transitive sharp (fleet sharp fixes, 2026-06): GitHub Actions built green while Netlify failed. Require a human + a green Netlify deploy preview before these merge.",
+      "matchPackageNames": [
+        "@reddoorla/maintenance",
+        "sharp",
+        "@zerodevx/svelte-img",
+        "vite-imagetools",
+        "imagetools-core",
+        "@sveltejs/enhanced-img"
+      ],
+      "automerge": false
+    },
     { "matchUpdateTypes": ["major"], "automerge": false }
   ]
 }
