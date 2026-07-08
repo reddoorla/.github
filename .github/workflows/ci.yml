@@ -37,6 +37,19 @@ jobs:
             echo "no test script — skipping"
           fi
 
+      # Smoke suite (health-gate): run the site's own `test:smoke` at PR time so a
+      # broken route / hydration regression is caught before merge, complementing the
+      # nightly fleet-smoke producer (reddoor-maintenance) that writes Smoke OK to
+      # Airtable. chromium's OS libs are already installed above; the site's script
+      # installs the browser binary. `if present` so a site without the suite skips.
+      - name: Smoke test (if present)
+        run: |
+          if node -e "process.exit(require('./package.json').scripts?.['test:smoke'] ? 0 : 1)"; then
+            pnpm test:smoke
+          else
+            echo "no test:smoke script — skipping"
+          fi
+
   deploy-preview-comment:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
