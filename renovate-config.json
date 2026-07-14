@@ -26,6 +26,13 @@
       ],
       "automerge": false
     },
-    { "matchUpdateTypes": ["major"], "automerge": false }
+    { "matchUpdateTypes": ["major"], "automerge": false },
+    {
+      "description": "Hold pnpm (packageManager) at 11.8.x: pnpm/action-setup's self-installer crashes bootstrapping any pnpm >=11.9 target ('self-installer exits with code 1' / 'Cannot use in operator to search for integrity in undefined'), breaking CI fleet-wide (2026-07). Only non-major pnpm bumps are held here; MAJOR pnpm updates and vulnerabilityAlerts still open PRs so the operator is notified for a manual fleetwide bump. Remove when action-setup/corepack reliably installs pnpm >=11.9.",
+      "matchDepNames": ["pnpm"],
+      "matchDepTypes": ["packageManager"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "enabled": false
+    }
   ]
 }
