@@ -24,9 +24,15 @@
         "imagetools-core",
         "@sveltejs/enhanced-img"
       ],
-      "automerge": false
+      "automerge": false,
+      "platformAutomerge": false
     },
-    { "matchUpdateTypes": ["major"], "automerge": false },
+    {
+      "description": "Majors need a human. `automerge: false` alone did not hold: on 2026-07-31 six fleet repos had an actions/checkout v4->v7 PR (Renovate's own body labelled it `major`) sitting with GitHub platform auto-merge ENABLED, one rebase away from landing unreviewed across the fleet. This rule has said `automerge: false` since the preset's first commit, so the enablement path is not explained by config drift and was not reproduced — setting `platformAutomerge: false` explicitly states the intent rather than relying on it being inherited as false. Applied to the graph-reshaping rule above for the same reason.",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "platformAutomerge": false
+    },
     {
       "description": "Hold pnpm (packageManager) at 11.8.x: pnpm/action-setup's self-installer crashes bootstrapping any pnpm >=11.9 target ('self-installer exits with code 1' / 'Cannot use in operator to search for integrity in undefined'), breaking CI fleet-wide (2026-07). Only non-major pnpm bumps are held here; MAJOR pnpm updates and vulnerabilityAlerts still open PRs so the operator is notified for a manual fleetwide bump. Remove when action-setup/corepack reliably installs pnpm >=11.9.",
       "matchDepNames": ["pnpm"],
