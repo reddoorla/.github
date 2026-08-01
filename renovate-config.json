@@ -1,19 +1,36 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:recommended", "helpers:pinGitHubActionDigests", "group:allNonMajor"],
-  "schedule": ["before 11am on monday"],
+  "extends": [
+    "config:recommended",
+    "helpers:pinGitHubActionDigests",
+    "group:allNonMajor"
+  ],
+  "timezone": "Etc/UTC",
+  "schedule": [
+    "before 6pm on monday"
+  ],
   "lockFileMaintenance": {
     "enabled": true,
-    "schedule": ["before 11am on monday"],
+    "schedule": [
+      "before 6pm on monday"
+    ],
     "automerge": true,
-    "platformAutomerge": true
+    "platformAutomerge": false
   },
   "osvVulnerabilityAlerts": true,
   "vulnerabilityAlerts": {
     "enabled": true
   },
   "packageRules": [
-    { "matchUpdateTypes": ["patch", "minor"], "automerge": true, "platformAutomerge": true },
+    {
+      "description": "Routine updates still merge unattended, but RENOVATE performs the merge from inside its own run \u2014 `platformAutomerge` is deliberately false. GitHub's platform auto-merge is a per-PR flag any write-access account can arm, and the PR then merges itself later with nobody watching; these rules have no authority over it. On 2026-07-26 a bulk `gh pr merge --auto` sweep armed it across 8 repos and two actions/checkout MAJORS merged with zero reviews the next morning (reddoor-starter#77, reddoor-website#111) once Renovate's rebase cleared their conflicts. Routing merges through Renovate makes these packageRules the actual decision-maker. Renovate can only merge while running, so the repo cron IS the merge cadence (twice daily).",
+      "matchUpdateTypes": [
+        "patch",
+        "minor"
+      ],
+      "automerge": true,
+      "platformAutomerge": false
+    },
     {
       "description": "Never auto-merge packages that reshape the dependency graph (and thus pnpm hoisting). An @reddoorla/maintenance minor bump silently broke Netlify builds via an undeclared transitive sharp (fleet sharp fixes, 2026-06): GitHub Actions built green while Netlify failed. Require a human + a green Netlify deploy preview before these merge.",
       "matchPackageNames": [
@@ -28,16 +45,25 @@
       "platformAutomerge": false
     },
     {
-      "description": "Majors need a human. `automerge: false` alone did not hold: on 2026-07-31 six fleet repos had an actions/checkout v4->v7 PR (Renovate's own body labelled it `major`) sitting with GitHub platform auto-merge ENABLED, one rebase away from landing unreviewed across the fleet. This rule has said `automerge: false` since the preset's first commit, so the enablement path is not explained by config drift and was not reproduced — setting `platformAutomerge: false` explicitly states the intent rather than relying on it being inherited as false. Applied to the graph-reshaping rule above for the same reason.",
-      "matchUpdateTypes": ["major"],
+      "description": "Majors need a human. This rule has been correct since the preset's first commit and was never the failure: Renovate has never armed auto-merge on a major. The 2026-07-26 incident (two actions/checkout majors merged with zero reviews \u2014 reddoor-starter#77, reddoor-website#111) came from a bulk `gh pr merge --auto` sweep by an operator/agent, which no Renovate config can block because platform auto-merge is a per-PR flag set outside Renovate. The real guard is that the fleet now disables platform auto-merge at the repository level (see the reddoor-maintenance `self-updating` recipe, which enforces allow_auto_merge=false and reports drift), so every merge goes through Renovate and lands on these rules. `platformAutomerge: false` here is belt-and-braces, not the mechanism.",
+      "matchUpdateTypes": [
+        "major"
+      ],
       "automerge": false,
       "platformAutomerge": false
     },
     {
       "description": "Hold pnpm (packageManager) at 11.8.x: pnpm/action-setup's self-installer crashes bootstrapping any pnpm >=11.9 target ('self-installer exits with code 1' / 'Cannot use in operator to search for integrity in undefined'), breaking CI fleet-wide (2026-07). Only non-major pnpm bumps are held here; MAJOR pnpm updates and vulnerabilityAlerts still open PRs so the operator is notified for a manual fleetwide bump. Remove when action-setup/corepack reliably installs pnpm >=11.9.",
-      "matchDepNames": ["pnpm"],
-      "matchDepTypes": ["packageManager"],
-      "matchUpdateTypes": ["minor", "patch"],
+      "matchDepNames": [
+        "pnpm"
+      ],
+      "matchDepTypes": [
+        "packageManager"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
       "enabled": false
     }
   ]
