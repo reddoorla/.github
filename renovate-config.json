@@ -65,6 +65,13 @@
         "patch"
       ],
       "enabled": false
+    },
+    {
+      "description": "TypeScript 7 (the Go-based tsgo compiler) is rejected by typescript-eslint \u2014 every fleet CI hard-errors with 'typescript-eslint does not support TS 7.0.' (seen on the 2026-08-03 weekly batch: hedloc#27, caltex-landing#45). Keep TS on 6.x until typescript-eslint ships TS7 support, then delete this rule.",
+      "matchPackageNames": [
+        "typescript"
+      ],
+      "allowedVersions": "<7.0.0"
     }
   ]
 }
