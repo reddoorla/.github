@@ -79,13 +79,6 @@
         "cookie"
       ],
       "allowedVersions": "<2.0.0"
-    },
-    {
-      "description": "@sveltejs/vite-plugin-svelte 7 requires vite 8 (the rolldown rewrite) + svelte >=5.46.4. Most fleet sites still run vite 6/7, and a straight vite-8 bump breaks their postcss/tailwind wiring (verified on gallerysonder 2026-08-03) \u2014 plugin-7 PRs can never go green there, and on vite 6/7 the plugin silently fails to register ('No loader is configured for .svelte'). Hold until the deliberate vite-8/rolldown migration wave aligns older sites with the current starter stack (1836dig, born on vite 8, is the existence proof), then delete this rule.",
-      "matchPackageNames": [
-        "@sveltejs/vite-plugin-svelte"
-      ],
-      "allowedVersions": "<7.0.0"
     }
   ]
 }
