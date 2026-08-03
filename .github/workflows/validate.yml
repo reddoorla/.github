@@ -1,0 +1,51 @@
+name: validate
+# Why this exists: no other workflow here runs on pull_request (ci.yml is
+# workflow_call-only), so Renovate branches would carry ZERO checks — and
+# Renovate (ignoreTests: false) never automerges a branch with no green
+# signal. This job is that signal, and it validates the two things this repo
+# actually is: digest-pinned workflows the whole fleet executes, and the org
+# Renovate preset.
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Every third-party action is digest-pinned
+        # A mutable tag in THIS repo is a fleet-wide supply-chain hole: the
+        # reusable ci.yml runs in every fleet repo's CI, and renovate.yml
+        # mints a repo-write App token. Fail on any `uses:` not pinned to a
+        # 40-hex commit (local `./` and same-repo reusable refs are exempt).
+        run: |
+          set -o pipefail
+          bad=$(grep -rHnE '^\s*(- )?uses:' .github/workflows/ \
+            | grep -vE 'uses:\s*(\./|reddoorla/)' \
+            | grep -vE '@[0-9a-f]{40}( |$)' || true)
+          if [ -n "$bad" ]; then
+            echo "::error::unpinned action reference(s):"
+            echo "$bad"
+            exit 1
+          fi
+          echo "all third-party uses: are digest-pinned"
+      - name: renovate-config.json parses and keeps its load-bearing keys
+        # The whole fleet resolves this preset at Renovate runtime; a broken
+        # JSON or a dropped platformAutomerge:false ships to every repo's
+        # next cron tick.
+        run: |
+          node -e '
+            const cfg = JSON.parse(require("fs").readFileSync("renovate-config.json", "utf8"));
+            const rules = cfg.packageRules ?? [];
+            const automergeRules = rules.filter((r) => r.automerge === true);
+            if (automergeRules.length === 0) throw new Error("no automerge rules found — preset gutted?");
+            for (const r of automergeRules) {
+              if (r.platformAutomerge !== false) throw new Error("automerge rule without platformAutomerge:false (2026-07-26 incident class)");
+            }
+            if (cfg.lockFileMaintenance?.enabled && cfg.lockFileMaintenance.platformAutomerge !== false)
+              throw new Error("lockFileMaintenance without platformAutomerge:false");
+            console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
+          '
