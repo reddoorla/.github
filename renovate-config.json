@@ -71,6 +71,13 @@
       "allowedVersions": "<7.0.0"
     },
     {
+      "description": "@libsql/kysely-libsql (the Kysely dialect reddoor-maintenance's hybrid DB runs on) hard-depends on @libsql/client ^0.8.0 and has no release supporting anything newer, so bumping the direct @libsql/client dep forks the tree into two incompatible Client types (typecheck: 'Promise<Replicated> is not assignable to Promise<void>', reddoor-maintenance#492 on the 2026-08-03 batch). Hold the client at 0.8.x until a kysely-libsql release widens its client range — Renovate will propose that release when it exists, and that PR is the cue to delete this rule and take both bumps together.",
+      "matchPackageNames": [
+        "@libsql/client"
+      ],
+      "allowedVersions": "<0.9.0"
+    },
+    {
       "description": "cookie v2 removed the parse/serialize named exports that every current @sveltejs/kit (<=2.70.2, cookie dep ^0.6.0) imports \u2014 forcing it via the vuln-wave overrides breaks the server build (rollup: 'parse is not exported by cookie@2.0.1', seen fleet-wide 2026-08-03). Worse, the range-WIDENING variant of the bump ('>=0.7.0 <3') is a delayed bomb: it stays on 0.7.x until the next lockfile-maintenance regen, then silently resolves to 2.x. Hold cookie below 2 until kit itself supports it, then delete this rule.",
       "matchPackageNames": [
         "cookie"
