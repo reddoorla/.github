@@ -72,6 +72,13 @@
         "typescript"
       ],
       "allowedVersions": "<7.0.0"
+    },
+    {
+      "description": "cookie v2 removed the parse/serialize named exports that every current @sveltejs/kit (<=2.70.2, cookie dep ^0.6.0) imports \u2014 forcing it via the vuln-wave overrides breaks the server build (rollup: 'parse is not exported by cookie@2.0.1', seen fleet-wide 2026-08-03). Worse, the range-WIDENING variant of the bump ('>=0.7.0 <3') is a delayed bomb: it stays on 0.7.x until the next lockfile-maintenance regen, then silently resolves to 2.x. Hold cookie below 2 until kit itself supports it, then delete this rule.",
+      "matchPackageNames": [
+        "cookie"
+      ],
+      "allowedVersions": "<2.0.0"
     }
   ]
 }
