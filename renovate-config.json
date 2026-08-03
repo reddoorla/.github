@@ -53,12 +53,9 @@
       "platformAutomerge": false
     },
     {
-      "description": "Hold pnpm (packageManager) at 11.8.x: pnpm/action-setup's self-installer crashes bootstrapping any pnpm >=11.9 target ('self-installer exits with code 1' / 'Cannot use in operator to search for integrity in undefined'), breaking CI fleet-wide (2026-07). Only non-major pnpm bumps are held here; MAJOR pnpm updates and vulnerabilityAlerts still open PRs so the operator is notified for a manual fleetwide bump. Remove when action-setup/corepack reliably installs pnpm >=11.9.",
+      "description": "Hold pnpm at 11.8.x on EVERY surface it appears: pnpm/action-setup's self-installer crashes bootstrapping any pnpm >=11.9 target ('self-installer exits with code 1' / 'Cannot use in operator to search for integrity in undefined'), breaking CI fleet-wide (2026-07). Deliberately NOT scoped to matchDepTypes packageManager — the same dep also surfaces through the github-actions manager as pnpm/action-setup's `version:` input, and holding only one side ships a guaranteed failure: on 2026-08-03 reddoor-maintenance#492 bumped the workflow inputs to 11.18.0 against the held packageManager 11.8.0 and action-setup hard-errors on any version mismatch. (Workflows should not pass `version:` at all — packageManager is the single source of truth — but the hold must not depend on that discipline.) Only non-major pnpm bumps are held; MAJOR pnpm updates and vulnerabilityAlerts still open PRs so the operator is notified for a manual fleetwide bump. Remove when action-setup/corepack reliably installs pnpm >=11.9.",
       "matchDepNames": [
         "pnpm"
-      ],
-      "matchDepTypes": [
-        "packageManager"
       ],
       "matchUpdateTypes": [
         "minor",
