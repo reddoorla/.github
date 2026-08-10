@@ -83,6 +83,15 @@
         "cookie"
       ],
       "allowedVersions": "<2.0.0"
+    },
+    {
+      "description": "pnpm overrides are hand-managed security pins, never Renovate's to bump. Renovate misreads override KEYS as dependencies and proposes rewriting the pinned range itself: the 2026-08-03 'brace-expansion@<X to v5' wave (widening the override to <6 breaks minimatch@3/9 at runtime) and the 2026-08-10 'cookie@<0.7.0 to v1' wave (17 PRs fleet-wide; cookie 0.7.2 is already fully patched for GHSA-pxg6-pf52-xh8x, so the rewrite adds zero security value and either flips @sveltejs/kit onto untested cookie 1.x or defers that jump to the next lockfile refresh). All three depTypes are listed because the npm manager assigns 'pnpm-workspace.overrides' to pnpm-workspace.yaml override entries (including flat 'parent>child' selector keys like '@sveltejs/kit>cookie'), 'pnpm.overrides' to package.json pnpm.overrides, and 'overrides' to package.json overrides; matching only 'overrides' would miss the workspace-YAML pins the fleet actually uses (pnpm 11 reads overrides from pnpm-workspace.yaml).",
+      "matchDepTypes": [
+        "overrides",
+        "pnpm.overrides",
+        "pnpm-workspace.overrides"
+      ],
+      "enabled": false
     }
   ]
 }
