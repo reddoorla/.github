@@ -33,6 +33,13 @@
       "platformAutomerge": false
     },
     {
+      "description": "Exempt lockfile maintenance from the top-level 1-day minimumReleaseAge. The gate (added in .github#26) emitted a pending renovate/stability-days status on every lock-file-maintenance PR, freezing all 11 of the 2026-08-10 Monday batch open and blocking the automerge that transitive-vuln cleanup rides on. It is redundant here: fleet CI's pnpm supply-chain policy already rejects lockfile entries younger than 24h at install time, so a CI-green lockfile PR has proven its age \u2014 Renovate re-checking release timestamps only duplicates that gate without adding safety. `minimumReleaseAge: null` resets the option for this update type only (schema type is string|null, default null); normal version-bump PRs keep the 1-day wait, and security PRs were never gated (vulnerabilityAlerts defaults include minimumReleaseAge: null).",
+      "matchUpdateTypes": [
+        "lockFileMaintenance"
+      ],
+      "minimumReleaseAge": null
+    },
+    {
       "description": "Never auto-merge packages that reshape the dependency graph (and thus pnpm hoisting). An @reddoorla/maintenance minor bump silently broke Netlify builds via an undeclared transitive sharp (fleet sharp fixes, 2026-06): GitHub Actions built green while Netlify failed. Require a human + a green Netlify deploy preview before these merge.",
       "matchPackageNames": [
         "@reddoorla/maintenance",
