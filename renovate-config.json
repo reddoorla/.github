@@ -5,11 +5,18 @@
     "helpers:pinGitHubActionDigests",
     "group:allNonMajor"
   ],
+  "description": [
+    "WEEKLY WINDOW + AGE GATE INVARIANT. `schedule` is Monday-only, and Renovate can only create, rebase, or merge a branch while it is inside that window — an out-of-schedule run is a no-op (verified 2026-08-12: caltex-landing's 12:52 UTC run logged `Repository finished / result: done` with zero branch activity while a green, CLEAN, automerge-eligible PR sat open). Pair that with a top-level `minimumReleaseAge` and routine updates become unmergeable: a PR opened Monday carries a pending `renovate/stability-days` status because the release is younger than the gate at creation time, the status only clears on Tuesday, and by then Renovate will not touch the branch again until the following Monday.",
+    "The 2026-08-10 batch froze exactly this way — 18 non-major PRs across the fleet sat CI-green, CLEAN and unmerged for days while every nightly reported healthy. `prCreation: not-pending` with `internalChecksFilter: strict` is Renovate's documented fix for this combination: pending releases are filtered out of the candidate set, and the PR is only opened once nothing about it is pending, so every PR Renovate opens can merge inside the same window that opened it. A release landing too close to the window now waits for the next Monday instead of opening a PR that cannot merge. `internalChecksFilter` is already Renovate's default, but it is pinned here because this preset is a fleet-wide contract and must not depend on an unstated upstream default.",
+    "INVARIANT: any future option that can leave a PR pending at creation time must be checked against the Monday-only window before it ships. A gate that clears one day after the window closes is a gate that never opens."
+  ],
   "timezone": "Etc/UTC",
   "schedule": [
     "before 6pm on monday"
   ],
   "minimumReleaseAge": "1 day",
+  "internalChecksFilter": "strict",
+  "prCreation": "not-pending",
   "lockFileMaintenance": {
     "enabled": true,
     "schedule": [
@@ -33,7 +40,7 @@
       "platformAutomerge": false
     },
     {
-      "description": "Exempt lockfile maintenance from the top-level 1-day minimumReleaseAge. The gate (added in .github#26) emitted a pending renovate/stability-days status on every lock-file-maintenance PR, freezing all 11 of the 2026-08-10 Monday batch open and blocking the automerge that transitive-vuln cleanup rides on. It is redundant here: fleet CI's pnpm supply-chain policy already rejects lockfile entries younger than 24h at install time, so a CI-green lockfile PR has proven its age \u2014 Renovate re-checking release timestamps only duplicates that gate without adding safety. `minimumReleaseAge: null` resets the option for this update type only (schema type is string|null, default null); normal version-bump PRs keep the 1-day wait, and security PRs were never gated (vulnerabilityAlerts defaults include minimumReleaseAge: null).",
+      "description": "Exempt lockfile maintenance from the top-level 1-day minimumReleaseAge. The gate (added in .github#26) emitted a pending renovate/stability-days status on every lock-file-maintenance PR, freezing all 11 of the 2026-08-10 Monday batch open and blocking the automerge that transitive-vuln cleanup rides on. CORRECTION (2026-08-12): the original version of this note justified the exemption by claiming fleet CI's pnpm supply-chain policy already rejects lockfile entries younger than 24h at install time. That is false \u2014 every fleet repo sets `minimumReleaseAge: 0` in pnpm-workspace.yaml (10/10 sampled, including reddoor-starter, which every site clones), so there is no pnpm-layer age gate backing this up. Do not cite one. The exemption stands on its own merits instead: lock-file maintenance re-resolves the ranges the manifest already permits rather than widening any range or adding a dependency, and it is the mechanism transitive-vulnerability cleanup rides on, so gating a whole-tree refresh on the freshest single transitive release trades real security latency for no meaningful supply-chain protection. `minimumReleaseAge: null` resets the option for this update type only (schema type is string|null, default null); normal version-bump PRs keep the 1-day wait, and security PRs were never gated (vulnerabilityAlerts defaults include minimumReleaseAge: null).",
       "matchUpdateTypes": [
         "lockFileMaintenance"
       ],
