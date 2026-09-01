@@ -42,12 +42,22 @@ jobs:
       # nightly fleet-smoke producer (reddoor-maintenance) that writes Smoke OK to
       # Airtable. chromium's OS libs are already installed above; the site's script
       # installs the browser binary. `if present` so a site without the suite skips.
+      #
+      # Skipped when the site's own `test` script already chains `test:smoke` — the
+      # step above just ran it, and running the Playwright suite twice per PR only
+      # burns minutes. Most sites chain it; gallerysonder has `test:smoke` with no
+      # `test` script at all, so the step is still the only thing that runs its
+      # smoke suite. Hence a condition, not a deletion.
       - name: Smoke test (if present)
         run: |
-          if node -e "process.exit(require('./package.json').scripts?.['test:smoke'] ? 0 : 1)"; then
+          if node -e "
+            const s = require('./package.json').scripts ?? {};
+            const chained = (s.test ?? '').includes('test:smoke');
+            process.exit(s['test:smoke'] && !chained ? 0 : 1);
+          "; then
             pnpm test:smoke
           else
-            echo "no test:smoke script — skipping"
+            echo "no test:smoke script, or \`pnpm test\` already ran it — skipping"
           fi
 
   deploy-preview-comment:
