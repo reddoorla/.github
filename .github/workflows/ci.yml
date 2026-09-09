@@ -27,6 +27,17 @@ jobs:
       - run: pnpm exec eslint .
       - run: pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json
       - run: pnpm build
+      # `--with-deps` runs `apt-get update`, which reads every source the runner
+      # image ships — including Google's Chrome repo. On 2026-09-09 that repo
+      # served a Packages.gz whose hash did not match its own signed Release
+      # manifest, and apt refused the whole update ("Hash Sum mismatch"): every
+      # fleet CI run failed here, before a single test ran, three times in a row
+      # over 40 minutes. We install Playwright's own Chromium build and nothing
+      # installs google-chrome, so that repo is never needed — dropping it keeps
+      # apt talking only to the Ubuntu mirrors and takes a third party we do not
+      # depend on out of the critical path.
+      - name: Drop the Chrome apt source (Playwright brings its own browser)
+        run: sudo rm -f /etc/apt/sources.list.d/google-chrome.list
       - run: pnpm exec playwright install --with-deps chromium
       - run: pnpm exec reddoor-maint audit --only a11y --fail-on-violations
       - name: Test (if present)
