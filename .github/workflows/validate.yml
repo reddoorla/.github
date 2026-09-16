@@ -49,3 +49,64 @@ jobs:
               throw new Error("lockFileMaintenance without platformAutomerge:false");
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
+
+  # Proves the Prettier/Svelte gate on a known-bad input, which is the whole
+  # point: the reusable lint step had only ever PASSED, and passed precisely
+  # because it was parsing nothing. Both fixtures hold the same mis-formatted
+  # .svelte file and must produce OPPOSITE outcomes.
+  prettier-svelte-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Premise — ci.yml still runs Prettier bare
+        run: |
+          grep -qF 'pnpm exec prettier --check .' .github/workflows/ci.yml || {
+            echo "::error::ci.yml no longer runs 'pnpm exec prettier --check .' — re-derive this test"
+            exit 1
+          }
+          echo "premise holds"
+      - name: Install the fleet's Prettier into both fixtures
+        run: |
+          for d in with-config no-config; do
+            (cd "tests/prettier-svelte/$d" && npm install --no-save --silent prettier@3.8.3 prettier-plugin-svelte@4.0.1)
+          done
+      - name: With a config, the mangled .svelte FAILS the lint command
+        working-directory: tests/prettier-svelte/with-config
+        run: |
+          set +e
+          out=$(npx prettier --check . 2>&1); rc=$?
+          set -e
+          echo "$out"
+          if [ "$rc" -eq 0 ]; then
+            echo "::error::prettier --check passed on a deliberately mangled .svelte file — the gate does not bite"
+            exit 1
+          fi
+          echo "$out" | grep -qF 'src/Mangled.svelte' || {
+            echo "::error::prettier failed but never named src/Mangled.svelte"
+            exit 1
+          }
+          echo "gate bites: exit $rc, names src/Mangled.svelte"
+      - name: Without a config, the SAME file passes — the blind spot, pinned
+        working-directory: tests/prettier-svelte/no-config
+        run: |
+          set +e
+          out=$(npx prettier --check . 2>&1); rc=$?
+          set -e
+          echo "$out"
+          if [ "$rc" -ne 0 ]; then
+            echo "::notice::Prettier now flags .svelte with no configured plugin (exit $rc). The #818 blind spot is gone upstream and the guard below can be retired — update this test deliberately."
+            exit 1
+          fi
+          echo "blind spot confirmed: exit 0 on a mangled .svelte with no config"
+      - name: The guard shipped in ci.yml rejects the config-less repo
+        run: |
+          sed -n '/# >>> prettier-svelte-guard >>>/,/# <<< prettier-svelte-guard <<</p' \
+            .github/workflows/ci.yml | sed 's/^          //' > "$RUNNER_TEMP/guard.sh"
+          test -s "$RUNNER_TEMP/guard.sh" || { echo "::error::guard markers not found in ci.yml"; exit 1; }
+          set +e
+          (cd tests/prettier-svelte/no-config && sh "$RUNNER_TEMP/guard.sh"); bad=$?
+          (cd tests/prettier-svelte/with-config && sh "$RUNNER_TEMP/guard.sh"); good=$?
+          set -e
+          [ "$bad" -ne 0 ] || { echo "::error::guard passed a repo with .svelte files and no config"; exit 1; }
+          [ "$good" -eq 0 ] || { echo "::error::guard rejected a repo that HAS a config"; exit 1; }
+          echo "guard: rejects config-less ($bad), accepts configured ($good)"
