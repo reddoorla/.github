@@ -23,6 +23,39 @@ jobs:
           node-version: ${{ inputs.node-version }}
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # The next step runs Prettier BARE. Prettier loads prettier-plugin-svelte
+      # only when a config file declares it, so in a repo with no Prettier
+      # config every .svelte file is skipped and the step passes green having
+      # parsed none of them. That was silently true in four fleet repos at once
+      # (reddoorla/reddoor-maintenance#818). Fail loudly instead of checking
+      # nothing. validate.yml in this repo extracts the shell between the two
+      # markers below and runs it against tests/prettier-svelte fixtures, so
+      # what is tested is these exact bytes.
+      - name: A repo with .svelte files must configure Prettier
+        run: |
+          # >>> prettier-svelte-guard >>>
+          set -eu
+          count=$(find . -name '*.svelte' -not -path './node_modules/*' -not -path './.git/*' | wc -l | tr -d ' ')
+          if [ "$count" -eq 0 ]; then
+            echo "no .svelte files - guard not applicable"
+            exit 0
+          fi
+          for f in .prettierrc .prettierrc.json .prettierrc.yml .prettierrc.yaml \
+                   .prettierrc.json5 .prettierrc.js .prettierrc.cjs .prettierrc.mjs \
+                   .prettierrc.toml prettier.config.js prettier.config.cjs \
+                   prettier.config.mjs prettier.config.ts; do
+            if [ -f "$f" ]; then
+              echo "Prettier config $f found - $count .svelte file(s) will be checked"
+              exit 0
+            fi
+          done
+          if [ -f package.json ] && node -e "process.exit(require('./package.json').prettier ? 0 : 1)"; then
+            echo "Prettier config in package.json - $count .svelte file(s) will be checked"
+            exit 0
+          fi
+          echo "::error::$count .svelte file(s) and no Prettier config. Bare 'prettier --check .' loads prettier-plugin-svelte only from a config, so it would skip every one of them and pass. Add .prettierrc.json (copy reddoorla/reddoor-starter's)."
+          exit 1
+          # <<< prettier-svelte-guard <<<
       - run: pnpm exec prettier --check .
       - run: pnpm exec eslint .
       - run: pnpm exec svelte-kit sync && pnpm exec svelte-check --tsconfig ./tsconfig.json

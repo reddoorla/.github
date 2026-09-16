@@ -57,3 +57,44 @@ which is what `prCreation: not-pending` looks like from the outside — the
 branch waits for a Monday window in which it can both open and merge.
 
 **What changed today.** `CLAUDE.md` and this file, nothing else.
+
+## 2026-09-15 — The reusable lint step now has a known-bad input, and a guard so the next repo cannot rejoin the blind spot (#818)
+
+`ci.yml` has always run `pnpm exec prettier --check .` bare. Prettier loads
+`prettier-plugin-svelte` only when a **config file** declares it, so in a repo
+with no `.prettierrc*`, no `prettier.config.*` and no `prettier` key, that step
+parses zero `.svelte` files and exits 0. It is the CLAUDE.md failure mode
+exactly: a check that had only ever passed, passing because it was reading
+nothing. Four repos were in that state at once — `reddoor-starter-blux` (82
+`.svelte`), `the-tower-burbank` (80), `canvas-starter` (68) and
+`composition-hospitality` (64) — and `reddoor-starter-blux` is the template
+every `--track blux` site is cloned from, so the hole was being copied forward.
+
+Measured on `the-tower-burbank` before any fix, with one deliberately mangled
+`Nav.svelte`: `pnpm exec prettier --check .` printed "All matched files use
+Prettier code style!" and named the file **zero** times, while the repo's own
+`pnpm lint` — which passed `--plugin prettier-plugin-svelte` on the command
+line — flagged it. The CLI idiom was carrying the whole fleet's Svelte
+formatting, and CI never shared it.
+
+Two things landed here. `tests/prettier-svelte/` holds two trees with a
+byte-identical mis-formatted `.svelte` file, and `validate.yml` asserts they
+produce **opposite** outcomes: with the shared config the lint command must fail
+and name `src/Mangled.svelte`; with no config it must pass. The second
+assertion is the interesting one — it pins the blind spot deliberately, so if a
+future Prettier starts parsing `.svelte` without a configured plugin, the test
+fails and tells us the guard can be retired rather than silently protecting
+nothing.
+
+The guard itself is an inline step in `ci.yml` that refuses a repo with
+`.svelte` files and no Prettier config. It is inline rather than a composite
+action or a second checkout so that nothing floats: a fleet repo pinned to a
+tag executes exactly the bytes of that tag. To keep the test honest about
+*which* bytes, `validate.yml` extracts the shell between two markers in
+`ci.yml` and runs that, so the tested artifact and the shipped artifact cannot
+drift apart.
+
+The guard reaches a repo only when that repo moves its pin, so nothing changes
+for the fleet until each site bumps its `uses:` line. That is deliberate — this
+tag should roll out behind the config PRs, not ahead of them, or the guard would
+red every one of the four repos before their fix merged.
