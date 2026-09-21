@@ -110,7 +110,18 @@
         "pnpm-workspace.overrides"
       ],
       "enabled": false
+    },
+    {
+      "description": "UNPROTECTED RENOVATE BASE BRANCH (2026-09-21). `internalChecksAsSuccess` also feeds the branch status Renovate uses for AUTOMERGE, and Renovate's docs say its default of false exists 'primarily to prevent automerge when the only check is a passing Renovate check'. Seconds after Renovate opens a PR, no CI check run is registered yet, so the only status is `renovate/stability-days: success` and the branch reads green. On a base branch with a REQUIRED status check GitHub refuses that merge and Renovate merges on a later run once CI is green, which is the designed path; swept 2026-09-21, all 27 repos extending this preset have a required check on their default branch (`ci / ci` on 25, `build`, `validate`). reddoor-website is the one exception: its renovate.json sets `baseBranchPatterns: [\"staging\"]`, and `staging` carries only a no-deletion ruleset, so an automerge-eligible minor/patch group (any week with no never-automerge package in it) could be merged into staging by Renovate before CI reported. This rule makes Renovate open those PRs and leave the merge to a human or an agent who has seen CI green. It is deliberately narrow: only minor and patch carry the internal stability status, so lock-file maintenance and everything else on that repo behave as before. DELETE THIS RULE when `staging` gains a required status check (reddoor-maintenance#545). It must stay LAST in packageRules, because later rules win.",
+      "matchRepositories": [
+        "reddoorla/reddoor-website"
+      ],
+      "matchUpdateTypes": [
+        "minor",
+        "patch"
+      ],
+      "automerge": false,
+      "platformAutomerge": false
     }
   ]
 }
-
