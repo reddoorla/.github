@@ -116,4 +116,3 @@ jobs:
           [ "$bad" -ne 0 ] || { echo "::error::guard passed a repo with .svelte files and no config"; exit 1; }
           [ "$good" -eq 0 ] || { echo "::error::guard rejected a repo that HAS a config"; exit 1; }
           echo "guard: rejects config-less ($bad), accepts configured ($good)"
-
