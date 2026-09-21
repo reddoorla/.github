@@ -47,6 +47,16 @@ jobs:
             }
             if (cfg.lockFileMaintenance?.enabled && cfg.lockFileMaintenance.platformAutomerge !== false)
               throw new Error("lockFileMaintenance without platformAutomerge:false");
+            // prCreation:not-pending waits for branch checks. Fleet CI runs on pull_request only, so a
+            // Renovate branch has no check runs, and Renovate ignores its own renovate/* statuses unless
+            // internalChecksAsSuccess is true. Without the pair, no routine PR was created anywhere in
+            // the fleet from 2026-08-12 to 2026-09-21 (see the CORRECTION note in the preset).
+            // status-success fails the same way: it also waits on a branch status that PR-only CI never turns green.
+            // Limits, stated so nobody over-trusts this: it sees only this file, not a prCreation arriving from a nested
+            // preset or from a site repo renovate.json; and it cannot see the per-repo required status check that is now
+            // the only thing holding back an automerge before CI has run (reddoor-maintenance#892).
+            if (["not-pending", "status-success"].includes(cfg.prCreation) && cfg.internalChecksAsSuccess !== true)
+              throw new Error("prCreation:" + cfg.prCreation + " without internalChecksAsSuccess:true: no PR can ever open on PR-only CI (2026-08-12 freeze class)");
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
 
