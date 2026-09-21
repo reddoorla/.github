@@ -47,6 +47,12 @@ jobs:
             }
             if (cfg.lockFileMaintenance?.enabled && cfg.lockFileMaintenance.platformAutomerge !== false)
               throw new Error("lockFileMaintenance without platformAutomerge:false");
+            // prCreation:not-pending waits for branch checks. Fleet CI runs on pull_request only, so a
+            // Renovate branch has no check runs, and Renovate ignores its own renovate/* statuses unless
+            // internalChecksAsSuccess is true. Without the pair, no routine PR was created anywhere in
+            // the fleet from 2026-08-12 to 2026-09-21 (see the CORRECTION note in the preset).
+            if (cfg.prCreation === "not-pending" && cfg.internalChecksAsSuccess !== true)
+              throw new Error("prCreation:not-pending without internalChecksAsSuccess:true: no PR can ever open on PR-only CI (2026-08-12 freeze class)");
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
 
@@ -110,3 +116,4 @@ jobs:
           [ "$bad" -ne 0 ] || { echo "::error::guard passed a repo with .svelte files and no config"; exit 1; }
           [ "$good" -eq 0 ] || { echo "::error::guard rejected a repo that HAS a config"; exit 1; }
           echo "guard: rejects config-less ($bad), accepts configured ($good)"
+
