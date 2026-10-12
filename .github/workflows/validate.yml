@@ -59,6 +59,28 @@ jobs:
               throw new Error("prCreation:" + cfg.prCreation + " without internalChecksAsSuccess:true: no PR can ever open on PR-only CI (2026-08-12 freeze class)");
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
+      - name: renovate-staging-flow.json parses, grants no automerge, and keeps its three base-bound rules
+        run: |
+          node -e '
+            const cfg = JSON.parse(require("fs").readFileSync("renovate-staging-flow.json", "utf8"));
+            const rules = cfg.packageRules ?? [];
+            if (JSON.stringify(cfg.baseBranchPatterns) !== JSON.stringify(["main", "staging"]))
+              throw new Error("baseBranchPatterns must be exactly [main, staging]");
+            if (rules.some((r) => "automerge" in r || "platformAutomerge" in r))
+              throw new Error("this preset must not set automerge: renovate-config owns it, with platformAutomerge:false");
+            const all = ["major", "minor", "patch", "pin", "pinDigest", "digest", "lockFileMaintenance", "rollback", "bump", "replacement"];
+            const off = (base) => new Set(rules.filter((r) => r.enabled === false && (r.matchBaseBranches ?? []).includes(base)).flatMap((r) => r.matchUpdateTypes ?? []));
+            const offMain = off("main"), offStaging = off("staging");
+            for (const t of all) {
+              const onMain = !offMain.has(t), onStaging = !offStaging.has(t);
+              if (onMain === onStaging) throw new Error(t + " would target " + (onMain ? "both bases" : "neither base"));
+              if (onMain !== ["patch", "minor"].includes(t)) throw new Error(t + " on the wrong base: only patch and minor target main");
+            }
+            const label = rules.filter((r) => (r.addLabels ?? []).includes("fast-track"));
+            if (label.length !== 1 || JSON.stringify(label[0].matchBaseBranches) !== JSON.stringify(["main"]) || JSON.stringify([...label[0].matchUpdateTypes].sort()) !== JSON.stringify(["minor", "patch"]))
+              throw new Error("exactly one rule may add fast-track, bound to main and patch/minor: main-gate reads it");
+            console.log("renovate-staging-flow.json OK: patch and minor to main with fast-track, everything else to staging");
+          '
 
   # Proves the Prettier/Svelte gate on a known-bad input, which is the whole
   # point: the reusable lint step had only ever PASSED, and passed precisely
