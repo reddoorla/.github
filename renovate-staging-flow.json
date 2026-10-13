@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": [
+    "THE STAGING FLOW (reddoor-maintenance#545, Operator decisions 113, answered 2026-10-12). Opt-in: a repo extends this AFTER renovate-config, and only once it has a `staging` branch with a ruleset requiring `ci / ci` and a `main-gate` check on `main`. It is not in renovate-config because its rules disable majors on `main`, which on a repo with no `staging` would leave majors with no branch at all.",
+    "The operator's rule, verbatim in intent: patches and minors target `main` and fast-track (the automerge rule in renovate-config merges them on green, with no operator PR per update; 'if I have to PR and merge for every patch update it pretty much defeats the point of renovate'). Majors, and every other update type, target `staging`, and reach production only through the operator's promotion PR.",
+    "With two base branches Renovate prefixes branch names with the base (`renovate/main-all-minor-patch`, `renovate/staging-sveltejs-kit-3.x`), read from its source (workers/repository/process/index.js, isMultiBaseBranch). A branch that exists under the old name is closed and reopened under the new one on the first run.",
+    "`main-gate`, the required check on `main`, lets through a PR from `staging`, or a PR authored by reddoor-renovate[bot] on a `renovate/` branch whose every commit that bot authored and which carries the `fast-track` label added by that bot. The label below is how the gate tells a patch or minor from anything else: only the `main` patch/minor rule adds it, and Renovate unions `addLabels` across a grouped PR's upgrades (workers/repository/updates/generate.js), so a group of patches and minors carries it.",
+    "Vulnerability alerts are not bound by these rules: Renovate appends one packageRule per alert with `force: { enabled: true }` (workers/repository/init/vulnerability.js), which overrides `enabled: false`. A security fix that is a patch or minor gets the label and passes the gate; a major security fix into `main` is held by the gate for the operator, who retargets it or merges it on his word.",
+    "Lock-file maintenance goes to `staging`: the operator named patches and minors, and a whole-tree refresh is neither."
+  ],
+  "baseBranchPatterns": ["main", "staging"],
+  "packageRules": [
+    {
+      "description": "On main: only patches and minors.",
+      "matchBaseBranches": ["main"],
+      "matchUpdateTypes": ["major", "lockFileMaintenance", "pin", "pinDigest", "digest", "rollback", "bump", "replacement"],
+      "enabled": false
+    },
+    {
+      "description": "On staging: everything but patches and minors, which already go to main.",
+      "matchBaseBranches": ["staging"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "enabled": false
+    },
+    {
+      "description": "The mark main-gate reads. Only this rule adds it.",
+      "matchBaseBranches": ["main"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "addLabels": ["fast-track"]
+    }
+  ]
+}

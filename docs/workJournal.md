@@ -98,3 +98,26 @@ The guard reaches a repo only when that repo moves its pin, so nothing changes
 for the fleet until each site bumps its `uses:` line. That is deliberate — this
 tag should roll out behind the config PRs, not ahead of them, or the guard would
 red every one of the four repos before their fix merged.
+
+## 2026-10-12 — The staging flow gets its own opt-in preset, renovate-staging-flow (patch from a reddoor-maintenance cloud session)
+
+The operator answered Operator decisions 113 (reddoor-maintenance#545): patches and minors target `main` and fast-track, because "if I have to PR and merge for every patch update it pretty much defeats the point of renovate". Majors target `staging` and reach production only through his promotion PR. This file is that rule. It is a separate preset rather than a change to `renovate-config`, because its rules disable majors on `main`. On a repo with no `staging` branch that would leave majors with nowhere to go. Renovate only warns and skips a base branch that does not exist (`workers/repository/process/index.js`, "Base branch does not exist - skipping"), so the absent branch would never be loud.
+
+It was proven before it shipped, on vida-legacy-foundation, by a draft PR that ran this repo's Renovate (44.151.2, the reddoor-renovate token) with `dryRun: full` in two arms (vida-legacy-foundation#99, closed). With the preset, the patch and minor group would open as `renovate/main-all-minor-patch` with `labels: ["fast-track"]`. Kit 3, adapter-netlify 7 and the vitest major, lock-file maintenance (`labels: []`) and the `actions/setup-node` digest all went to `staging`. The control arm, the fleet preset alone, saw only `main` and no `fast-track` anywhere. A cloud session cannot run this on its own: Renovate's GitHub platform calls GraphQL in `initRepo`, and the session proxy refuses GraphQL. The local platform skips base branches entirely (`platform !== "local"`).
+
+Three things read from Renovate's source shaped it:
+- **Branch names.** Two base branches prefix every branch name with the base (`renovate/main-…`, `renovate/staging-…`). So the first live run on a repo autocloses its open Renovate PRs and reopens them under the new names; the dry run listed vida's #80 and #94–#97.
+- **Grouped labels.** A grouped PR takes the union of its upgrades' `addLabels` (`workers/repository/updates/generate.js`). That is why one rule on `main` patch/minor is enough to mark the group.
+- **Vulnerability alerts.** Each alert becomes a packageRule with `force: { enabled: true }` (`workers/repository/init/vulnerability.js`), which overrides this preset's `enabled: false`. The dry run showed vida's sharp fixes on both bases, and the one into `main`, a minor, carries the label.
+
+The label is how `main-gate`, the required check that goes on each flow repo's `main`, tells a patch or minor from anything else. That gate passes only:
+- a PR from `staging`, or
+- a PR by `reddoor-renovate[bot]` on a `renovate/` branch where every commit is the bot's and the `fast-track` label was last added by the bot.
+
+`validate.yml` now holds this file to that shape, and each of its six assertions was turned red by a mutation before this landed:
+- `baseBranchPatterns` is exactly `[main, staging]`;
+- no rule sets `automerge` (`renovate-config` owns it, with `platformAutomerge: false`);
+- each of Renovate's ten update types targets exactly one base, and only `patch` and `minor` target `main`;
+- exactly one rule adds `fast-track`, and it is bound to `main` and to `patch`/`minor`.
+
+Not changed here: the last packageRule in `renovate-config` (reddoor-website's unprotected `staging`) says to delete it when that `staging` gains a required check. It has not gained one yet, so the rule stays.
