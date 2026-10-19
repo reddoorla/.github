@@ -57,6 +57,12 @@ jobs:
             // the only thing holding back an automerge before CI has run (reddoor-maintenance#892).
             if (["not-pending", "status-success"].includes(cfg.prCreation) && cfg.internalChecksAsSuccess !== true)
               throw new Error("prCreation:" + cfg.prCreation + " without internalChecksAsSuccess:true: no PR can ever open on PR-only CI (2026-08-12 freeze class)");
+            // A lock-file branch carries no renovate/ status (minimumReleaseAge is null for it) and no check run, so it reads
+            // pending forever under not-pending: a run that pushes it returns before PR creation, and a run that does not
+            // sees it younger than prNotPendingHours (25) inside the Monday window. No lock-file PR opened fleet-wide from
+            // 2026-09-15 to 2026-10-19 (reddoor-maintenance P1-52).
+            if (["not-pending", "status-success"].includes(cfg.prCreation) && cfg.lockFileMaintenance?.enabled && cfg.lockFileMaintenance.prCreation !== "immediate")
+              throw new Error("lockFileMaintenance without prCreation:immediate under prCreation:" + cfg.prCreation + ": no lock-file PR can open inside the Monday window (P1-52)");
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
       - name: renovate-staging-flow.json parses, grants no automerge, and keeps its three base-bound rules
