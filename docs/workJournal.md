@@ -121,3 +121,17 @@ The label is how `main-gate`, the required check that goes on each flow repo's `
 - exactly one rule adds `fast-track`, and it is bound to `main` and to `patch`/`minor`.
 
 Not changed here: the last packageRule in `renovate-config` (reddoor-website's unprotected `staging`) says to delete it when that `staging` gains a required check. It has not gained one yet, so the rule stays.
+
+## 2026-10-22 — Grouped minor/patch PRs open on the run that pushes them, and the never-automerge packages group alone (patch from reddoorla/reddoor-maintenance#1689)
+
+This is option 1 of the reddoor-workspace decision `decisions/2026-10-21-2218-renovate-feature-drought.md`: 19 of 25 repos had no grouped minor/patch PR opened from 2026-09-22 to 2026-10-21. The mechanism and the two-arm proof (reddoorla/reddoor-starter#197, reddoorla/canvas-starter#36) are in the two packageRules dated 2026-10-21 and in the workspace's `audits/2026-10-21-renovate-feature-drought/addendum-2026-10-21-proof.md`, so they are not restated here.
+
+It was built and proven in a cloud session but landed from the laptop, as a `git am` of the patch stored in reddoorla/reddoor-maintenance#1689, because a cloud session cannot attach a repository whose name starts with "." and this one does. The patch applied cleanly on `2de84b3` and touches only `renovate-config.json` and `validate.yml`.
+
+Before the push, both `renovate` steps, extracted from the patched `validate.yml` and run under Node 24.16.0, printed OK. Then each path of the two new guards was turned red by a mutation of its own, and all four exited 1:
+- the patched validator against `main`'s unpatched config (`2de84b3`): "no unscoped minor/patch rule with prCreation:immediate";
+- the `immediate` rule scoped with `matchPackageNames`: the same error;
+- a later minor/patch rule with `prCreation: not-pending`, scoped by `matchDepTypes`: the same error, because the last such rule decides;
+- the `held-minor-patch` group removed: "never-automerge packages [...] have no minor/patch group of their own".
+
+Nothing reaches a site until its next run inside the window, Monday 2026-10-26 before 18:00Z (11am PT), when it resolves this preset at runtime. reddoor-starter, canvas-starter, medical-solutions-of-texas and hedloc all extend `reddoorla/.github:renovate-config` with no `#` version, so no pin moves for them; the rest of the fleet was not checked. Expect the wave the preset's 2026-10-21 note describes: two grouped PRs per repo on the first in-window run, throttled by `prHourlyLimit`.
