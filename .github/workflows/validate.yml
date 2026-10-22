@@ -63,6 +63,23 @@ jobs:
             // 2026-09-15 to 2026-10-19 (reddoor-maintenance P1-52).
             if (["not-pending", "status-success"].includes(cfg.prCreation) && cfg.lockFileMaintenance?.enabled && cfg.lockFileMaintenance.prCreation !== "immediate")
               throw new Error("lockFileMaintenance without prCreation:immediate under prCreation:" + cfg.prCreation + ": no lock-file PR can open inside the Monday window (P1-52)");
+            // A run that pushes a branch with no PR returns before PR creation unless prCreation is immediate, and the
+            // grouped branch gets one in-window run a week, which nearly always pushes. 19 of 25 repos had no grouped PR
+            // opened from 2026-09-22 to 2026-10-21 (reddoor-workspace decision 2026-10-21-2218).
+            // Later rules win, so the LAST rule that sets prCreation for minor or patch decides, and it must be unscoped.
+            const scoped = (r) => Object.keys(r).some((k) => k.startsWith("match") && k !== "matchUpdateTypes");
+            const lastPrCreation = rules.filter((r) => "prCreation" in r && (r.matchUpdateTypes ?? []).some((t) => ["minor", "patch"].includes(t))).at(-1);
+            const groupedImmediate = !!lastPrCreation && lastPrCreation.prCreation === "immediate" && !scoped(lastPrCreation) && ["minor", "patch"].every((t) => lastPrCreation.matchUpdateTypes.includes(t));
+            if (["not-pending", "status-success"].includes(cfg.prCreation) && !groupedImmediate)
+              throw new Error("no unscoped minor/patch rule with prCreation:immediate under prCreation:" + cfg.prCreation + ": the grouped PR cannot open on the run that pushes it (2026-10-21)");
+            // Under group:allNonMajor one never-automerge package holds the whole grouped branch, so each hold needs a
+            // minor/patch group of exactly its packages. A package held but left out of the group holds all-minor-patch again.
+            const names = (r) => JSON.stringify([...r.matchPackageNames].sort());
+            const minorPatch = JSON.stringify(["minor", "patch"]);
+            for (const hold of rules.filter((r) => r.automerge === false && r.matchPackageNames && !r.matchUpdateTypes)) {
+              if (!rules.some((g) => g.groupName && g.matchPackageNames && names(g) === names(hold) && JSON.stringify([...(g.matchUpdateTypes ?? [])].sort()) === minorPatch))
+                throw new Error("never-automerge packages " + names(hold) + " have no minor/patch group of their own: they hold the whole all-minor-patch group (2026-10-21)");
+            }
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
       - name: renovate-staging-flow.json parses, grants no automerge, and keeps its three base-bound rules
