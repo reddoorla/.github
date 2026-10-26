@@ -80,6 +80,40 @@ jobs:
               if (!rules.some((g) => g.groupName && g.matchPackageNames && names(g) === names(hold) && JSON.stringify([...(g.matchUpdateTypes ?? [])].sort()) === minorPatch))
                 throw new Error("never-automerge packages " + names(hold) + " have no minor/patch group of their own: they hold the whole all-minor-patch group (2026-10-21)");
             }
+            // Majors hit the same early return: a run that pushes a new major branch opens no PR unless prCreation is
+            // immediate, so a major opened only in a week when a second in-window run pushed nothing (reddoor-maintenance#1688).
+            // An unscoped immediate rule must reach major, and no later rule may set any other prCreation for it (a later scoped
+            // immediate rule is harmless; a later not-pending one, scoped or not, would undo it). Digests are left out on purpose:
+            // they carry no release timestamp, so under minimumReleaseAge they are never branched, and made immediate they
+            // open behind a stability status that never clears and take an hourly PR slot ahead of both grouped PRs
+            // (reddoor-workspace decision 2026-10-24-1436).
+            // matchUpdateTypes may be a string, and a rule without it reaches every update type.
+            const reaches = (r, t) => (r.matchUpdateTypes == null ? [t] : [].concat(r.matchUpdateTypes)).includes(t);
+            const majorRules = rules.filter((r) => "prCreation" in r && reaches(r, "major"));
+            const firstMajorImmediate = majorRules.findIndex((r) => r.prCreation === "immediate" && !scoped(r));
+            const majorImmediate = firstMajorImmediate !== -1 && majorRules.slice(firstMajorImmediate).every((r) => r.prCreation === "immediate");
+            if (["not-pending", "status-success"].includes(cfg.prCreation) && !majorImmediate)
+              throw new Error("no unscoped major rule with prCreation:immediate under prCreation:" + cfg.prCreation + ": a new major PR cannot open on the run that pushes it (#1688)");
+            const digestImmediate = cfg.prCreation === "immediate" || cfg.digest?.prCreation === "immediate" ||
+              rules.some((r) => r.prCreation === "immediate" && reaches(r, "digest"));
+            if (digestImmediate)
+              throw new Error("prCreation:immediate on digest: digests have no release timestamp, so the PR waits on a stability status that never clears and takes an hourly slot ahead of the grouped PRs (2026-10-24)");
+            // Renovate sorts lock-file maintenance after every other update type and creates at most prHourlyLimit (2) PRs an
+            // hour, so in a week when both grouped PRs refill it loses its slot to them (lib/workers/repository/process/sort.ts,
+            // Renovate 44.176.1 to 44.181.3). prPriority sorts before update type, so lock-file maintenance needs the highest one, set by an
+            // unscoped rule that matches lockFileMaintenance alone and is the last prPriority rule to reach it: a rule that also matched
+            // minor or patch, or a later one with no matchUpdateTypes (say prPriority: -1), would tie the grouped branches with it, and
+            // the update-type order would put them first again. Renovate accepts prPriority only inside packageRules.
+            if (cfg.lockFileMaintenance?.enabled) {
+              const lastLockPriority = rules.filter((r) => "prPriority" in r && reaches(r, "lockFileMaintenance")).at(-1);
+              const others = rules.filter((r) => "prPriority" in r && r !== lastLockPriority).map((r) => r.prPriority);
+              const higher = rules.filter((r) => "prPriority" in r && r !== lastLockPriority && !(lastLockPriority?.prPriority > r.prPriority));
+              if (lastLockPriority && higher.length)
+                throw new Error("prPriority " + JSON.stringify(higher.map((r) => r.prPriority)) + " on another packageRule is not below lock-file maintenance at " + lastLockPriority.prPriority + ": it would take the hourly PR slots first (#1688)");
+              const lockOnly = !!lastLockPriority && JSON.stringify([].concat(lastLockPriority.matchUpdateTypes ?? [])) === JSON.stringify(["lockFileMaintenance"]);
+              if (!lockOnly || scoped(lastLockPriority) || !(lastLockPriority.prPriority > Math.max(0, ...others)))
+                throw new Error("lockFileMaintenance without an unscoped packageRule, matching it alone, that gives it the highest prPriority: the grouped PRs take the hourly PR slots first (#1688)");
+            }
             console.log("renovate-config.json OK:", automergeRules.length, "automerge rule(s), platformAutomerge false everywhere");
           '
       - name: renovate-staging-flow.json parses, grants no automerge, and keeps its three base-bound rules
