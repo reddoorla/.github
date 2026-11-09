@@ -98,6 +98,27 @@ jobs:
               rules.some((r) => r.prCreation === "immediate" && reaches(r, "digest"));
             if (digestImmediate)
               throw new Error("prCreation:immediate on digest: digests have no release timestamp, so the PR waits on a stability status that never clears and takes an hourly slot ahead of the grouped PRs (2026-10-24)");
+            // NODE HOLD (2026-11-09, reddoor-maintenance P1-105): Node stays below 26 until AWS Lambda lists nodejs26.x as GA,
+            // because Netlify runs server functions on nodejs24.x until then. Each leg below is a [manager, depName, packageName]
+            // Renovate 44.199.2 extracted from a fixture carrying Node in every place the fleet does; the 11-02 and 11-09 Node 26
+            // PRs touched nvm, github-actions and npm (@types/node). The last allowedVersions rule that can reach a leg must be
+            // unconditional (matched only by manager, dep or package name, all naming the leg) and cap below 26, or that leg
+            // would propose Node 26 again. Delete this block together with the preset rule when the hold lifts.
+            const NODE_HOLD_LEGS = [["nvm", "node", "node"], ["nodenv", "node", "node"], ["asdf", "node", "node"], ["dockerfile", "node", "node"],
+              ["github-actions", "node", "actions/node-versions"], ["github-actions", "node", "node"], ["docker-compose", "node", "node"],
+              ["mise", "node", "node"], ["npm", "node", "node"], ["npm", "@types/node", "@types/node"]];
+            const NAME_KEYS = { matchManagers: 0, matchDepNames: 1, matchPackageNames: 2 };
+            const plainNames = (v) => Array.isArray(v) && v.every((n) => typeof n === "string" && /^[@a-z0-9][a-z0-9._\/-]*$/i.test(n));
+            const namesHave = (v, n) => v.some((x) => x.toLowerCase() === n.toLowerCase());
+            const excludesLeg = (r, leg) => Object.entries(NAME_KEYS).some(([k, i]) => plainNames(r[k]) && !namesHave(r[k], leg[i]));
+            const cleanFor = (r, leg) => Object.keys(r).filter((k) => k.startsWith("match") || k.startsWith("exclude"))
+              .every((k) => k in NAME_KEYS && plainNames(r[k]) && namesHave(r[k], leg[NAME_KEYS[k]]));
+            for (const leg of NODE_HOLD_LEGS) {
+              const last = rules.filter((r) => "allowedVersions" in r && !excludesLeg(r, leg)).at(-1);
+              const cap = /^<(\d+)(\.0\.0)?$/.exec(typeof last?.allowedVersions === "string" ? last.allowedVersions : "");
+              if (!last || !cleanFor(last, leg) || !cap || Number(cap[1]) > 26 || Number(cap[1]) < 25)
+                throw new Error("node hold (P1-105): " + leg[0] + " / " + leg[1] + " is not capped at <25 or <26 by an unconditional allowedVersions rule (last reaching: " + JSON.stringify(last ? { ...last, description: undefined } : null) + "); Renovate would propose Node 26 there while AWS Lambda nodejs26.x is a preview");
+            }
             // Renovate sorts lock-file maintenance after every other update type and creates at most prHourlyLimit (2) PRs an
             // hour, so in a week when both grouped PRs refill it loses its slot to them (lib/workers/repository/process/sort.ts,
             // Renovate 44.176.1 to 44.181.3). prPriority sorts before update type, so lock-file maintenance needs the highest one, set by an
